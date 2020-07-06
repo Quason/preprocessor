@@ -302,7 +302,7 @@ def main(ifile, shp_file, path_out_10m, path_out_20m, path_out_60m,
     nbands = len(name_10m)
     xsize = cut_range_10m[1] - cut_range_10m[0]
     ysize = cut_range_10m[3] - cut_range_10m[2]
-    target_ds = gdal.GetDriverByName('GTiff').Create(file_out, xsize, ysize, nbands, gdal.GDT_UInt16)
+    target_ds = gdal.GetDriverByName('GTiff').Create(file_out, xsize, ysize, nbands, gdal.GDT_Int16)
     geo_trans = (ulx+cut_range_10m[0]*10, 10, 0, uly-cut_range_10m[2]*10, 0, -10)
     raster_srs = osr.SpatialReference()
     raster_srs.ImportFromEPSG(epsg)
@@ -313,6 +313,7 @@ def main(ifile, shp_file, path_out_10m, path_out_20m, path_out_60m,
     for item in name_10m:
         raster = gdal.Open(os.path.join(path_data, item))
         data = raster.GetRasterBand(1).ReadAsArray()
+        nan_mask = data == 0
         raster = None
         radi_cali = data.astype(float) / 10000
         # 大气校正
@@ -333,7 +334,10 @@ def main(ifile, shp_file, path_out_10m, path_out_20m, path_out_60m,
         res_atms_corr = arms_corr(radi_cali, mtl_coef, wave_index)
         # 裁切
         res_atms_corr = res_atms_corr[cut_range_10m[2]:cut_range_10m[3], cut_range_10m[0]:cut_range_10m[1]]
-        target_ds.GetRasterBand(nband+1).WriteArray((res_atms_corr*10000).astype(np.int))
+        res_atms_corr = res_atms_corr * 10000
+        res_atms_corr[nan_mask] = -9999
+        target_ds.GetRasterBand(nband+1).WriteArray((res_atms_corr).astype(np.int))
+        target_ds.GetRasterBand(nband+1).SetNoDataValue(-9999)
         nband = nband + 1
         print('%s处理完毕...' % wave_index)
     target_ds = None
@@ -344,7 +348,7 @@ def main(ifile, shp_file, path_out_10m, path_out_20m, path_out_60m,
     nbands = len(name_20m)
     xsize = cut_range_20m[1] - cut_range_20m[0]
     ysize = cut_range_20m[3] - cut_range_20m[2]
-    target_ds = gdal.GetDriverByName('GTiff').Create(file_out, xsize, ysize, nbands, gdal.GDT_UInt16)
+    target_ds = gdal.GetDriverByName('GTiff').Create(file_out, xsize, ysize, nbands, gdal.GDT_Int16)
     geo_trans = (ulx+cut_range_20m[0]*20, 20, 0, uly-cut_range_20m[2]*20, 0, -20)
     raster_srs = osr.SpatialReference()
     raster_srs.ImportFromEPSG(epsg)
@@ -362,6 +366,7 @@ def main(ifile, shp_file, path_out_10m, path_out_20m, path_out_60m,
                 for j in range(2):
                     data_resample = data_resample + data[i::2, j::2]
             data = data_resample / 4
+        nan_mask = data == 0
         raster = None
         radi_cali = data.astype(float) / 10000
         # 大气校正
@@ -382,7 +387,10 @@ def main(ifile, shp_file, path_out_10m, path_out_20m, path_out_60m,
         res_atms_corr = arms_corr(radi_cali, mtl_coef, wave_index)
         # 裁切
         res_atms_corr = res_atms_corr[cut_range_20m[2]:cut_range_20m[3], cut_range_20m[0]:cut_range_20m[1]]
-        target_ds.GetRasterBand(nband+1).WriteArray((res_atms_corr*10000).astype(np.int))
+        res_atms_corr = res_atms_corr * 10000
+        res_atms_corr[nan_mask] = -9999
+        target_ds.GetRasterBand(nband+1).WriteArray((res_atms_corr).astype(np.int))
+        target_ds.GetRasterBand(nband+1).SetNoDataValue(-9999)
         nband = nband + 1
         print('%s处理完毕...' % wave_index)
     target_ds = None
@@ -393,7 +401,7 @@ def main(ifile, shp_file, path_out_10m, path_out_20m, path_out_60m,
     nbands = len(name_60m)
     xsize = cut_range_60m[1] - cut_range_60m[0]
     ysize = cut_range_60m[3] - cut_range_60m[2]
-    target_ds = gdal.GetDriverByName('GTiff').Create(file_out, xsize, ysize, nbands, gdal.GDT_UInt16)
+    target_ds = gdal.GetDriverByName('GTiff').Create(file_out, xsize, ysize, nbands, gdal.GDT_Int16)
     geo_trans = (ulx+cut_range_60m[0]*60, 60, 0, uly-cut_range_60m[2]*60, 0, -60)
     raster_srs = osr.SpatialReference()
     raster_srs.ImportFromEPSG(epsg)
@@ -417,6 +425,7 @@ def main(ifile, shp_file, path_out_10m, path_out_20m, path_out_60m,
                 for j in range(3):
                     data_resample = data_resample + data[i::3, j::3]
             data = data_resample / 9
+        nan_mask = data == 0
         raster = None
         radi_cali = data.astype(float) / 10000
         # 大气校正
@@ -440,7 +449,10 @@ def main(ifile, shp_file, path_out_10m, path_out_20m, path_out_60m,
             res_atms_corr = arms_corr(radi_cali, mtl_coef, wave_index)
         # 裁切
         res_atms_corr = res_atms_corr[cut_range_60m[2]:cut_range_60m[3], cut_range_60m[0]:cut_range_60m[1]]
-        target_ds.GetRasterBand(nband+1).WriteArray((res_atms_corr*10000).astype(np.int))
+        res_atms_corr = res_atms_corr * 10000
+        res_atms_corr[nan_mask] = -9999
+        target_ds.GetRasterBand(nband+1).WriteArray((res_atms_corr).astype(np.int))
+        target_ds.GetRasterBand(nband+1).SetNoDataValue(-9999)
         nband = nband + 1
         print('%s处理完毕...' % wave_index)
     target_ds = None
