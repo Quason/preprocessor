@@ -1,0 +1,7 @@
+{
+    "path_6s": "/mnt/d/a-proj/backend/static",
+    "MRTDATADIR": "/usr/local/heg/data",
+    "PGSHOME": "/usr/local/heg/TOOLKIT_MTD",
+    "MRTBINDIR": "/usr/local/heg/bin",
+    "path_gdalwarp": "/usr/local/bin/gdalwarp"
+}

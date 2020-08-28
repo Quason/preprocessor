@@ -12,25 +12,26 @@ import argparse
 import simplejson
 import time
 
-import pre_modis_qkm as modis250m
-import pre_modis_hkm as modis500m
-import pre_modis_1km as modis1km
-import pre_l8 as landsat8
-import pre_l5 as landsat5
-import pre_viirs_375m as npp375m
-import pre_viirs_750m as npp750m
-import pre_s2 as sentinel2
-import pre_s3_olci as s3_olci
-import pre_s3_slstr as s3_slstr
-import pre_goci as goci
-import pre_himawari8 as himawari8
-import pre_gf1_pms as gf1_pms
-import pre_gf1_wfv as gf1_wfv
-import pre_gf2_pms as gf2
-import pre_zy3 as zy3
+import models.pre_modis_qkm as modis250m
+import models.pre_modis_hkm as modis500m
+import models.pre_modis_1km as modis1km
+import models.pre_l8 as landsat8
+import models.pre_l5 as landsat5
+import models.pre_viirs_375m as npp375m
+import models.pre_viirs_750m as npp750m
+# import models.pre_s2 as sentinel2
+import models.pre_s2_separate as sentinel2
+import models.pre_s3_olci as s3_olci
+import models.pre_s3_slstr as s3_slstr
+import models.pre_goci as goci
+import models.pre_himawari8 as himawari8
+import models.pre_gf1_pms as gf1_pms
+import models.pre_gf1_wfv as gf1_wfv
+import models.pre_gf2_pms as gf2
+import models.pre_zy3 as zy3
 
 rootpath = os.path.dirname(os.path.abspath(__file__))
-jsonFile = os.path.join(rootpath, 'global_configure.json')
+jsonFile = os.path.join(rootpath, 'models', 'global_configure.json')
 with open(jsonFile, 'r') as fp:
     global_config = simplejson.load(fp)
 
@@ -59,10 +60,11 @@ SATELLITE_TYPE = [
 
 
 def main(file_in, path_out, satellite_type, file_in_geo,
-        location, aerosol, view, altitude):
+        location, aerosol, view, altitude, target):
     '''
     @description: 卫星数据预处理
     @satellite_type {str} 原始数据类型
+    @file_in_geo {str} 地理矢量数据用于裁切
     @location {[float, float]} 目标经纬度
     @aerosol {int} 气溶胶类型(0:无 1:大陆 2:近海 3:城市)
     @view {float} 能见度
@@ -182,10 +184,18 @@ def main(file_in, path_out, satellite_type, file_in_geo,
         path_out_10m = path_out
         path_out_20m = path_out
         path_out_60m = path_out
+        # sentinel2.main(
+        #     ifile=file_in, shp_file=file_in_geo, aero_type=aerosol, target_type=4,
+        #     altitude=altitude, visibility=view, path_out_10m=path_out_10m,
+        #     path_out_20m=path_out_20m, path_out_60m=path_out_60m
+        # )
         sentinel2.main(
-            ifile=file_in, shp_file=None, aero_type=aerosol, target_type=4,
-            altitude=altitude, visibility=view, path_out_10m=path_out_10m,
-            path_out_20m=path_out_20m, path_out_60m=path_out_60m
+            ifile=file_in,
+            aero_type=aerosol,
+            target_type=target,
+            altitude=altitude,
+            visibility=view,
+            dst_dir=path_out_10m
         )
     elif satellite_type == 'Sentinel3-OLCI':
         # Sentinel3 OLCI
@@ -239,6 +249,7 @@ if __name__ == '__main__':
     parser.add_argument('--aero', type=int, default=1, help='气溶胶类型 0无 1大陆 2近海 3城市')
     parser.add_argument('--view', type=float, default=15.0, help='能见度(km)')
     parser.add_argument('--alti', type=float, default=0.01, help='地面高程(km)')
+    parser.add_argument('--target', type=int, default=4, help='地面目标物类型') # 1 植被 2 一类水体 3 沙漠 4 湖泊水体
     args = parser.parse_args()
     if not(args.type in SATELLITE_TYPE):
         print('[Error] Invalid satellite type(--type), should be one of the following:\n%s' % (
@@ -252,7 +263,8 @@ if __name__ == '__main__':
         location=[args.lon, args.lat],
         aerosol=args.aero,
         view=args.view,
-        altitude=args.alti
+        altitude=args.alti,
+        target=args.target
     )
     time_e = time.time()
     print('%ds in all' % (time_e-time_s))

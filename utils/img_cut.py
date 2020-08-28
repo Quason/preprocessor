@@ -27,7 +27,7 @@ def coord_trans(EPSGs, EPSGt, x, y):
     return coords[:2]
 
 
-def main(raster_file, shp_file=None, sub_lim=None, corner=None, out_file=None):
+def main(raster_file, shp_file='', sub_lim=None, corner=None, out_file=None):
     '''
     @description: 根据矢量或经纬度范围裁切栅格
     @raster_file {str} 原始栅格文件
@@ -38,7 +38,7 @@ def main(raster_file, shp_file=None, sub_lim=None, corner=None, out_file=None):
     @return: 
     '''
     raster = gdal.Open(raster_file)
-    if not(shp_file is None):
+    if not(shp_file):
         # 建立掩膜文件
         if '.TIF' in raster_file:
             raster_file_out = raster_file.replace('.TIF', '_mask.TIF')
