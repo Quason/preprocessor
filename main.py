@@ -20,7 +20,8 @@ import models.pre_l5 as landsat5
 import models.pre_viirs_375m as npp375m
 import models.pre_viirs_750m as npp750m
 # import models.pre_s2 as sentinel2
-import models.pre_s2_separate as sentinel2
+# import models.pre_s2_separate as sentinel2
+import models.pre_s2_parallel as sentinel2
 import models.pre_s3_olci as s3_olci
 import models.pre_s3_slstr as s3_slstr
 import models.pre_goci as goci
@@ -60,7 +61,7 @@ SATELLITE_TYPE = [
 
 
 def main(file_in, path_out, satellite_type, file_in_geo,
-        location, aerosol, view, altitude, target):
+        location, aerosol, view, altitude, target, cores):
     '''
     @description: 卫星数据预处理
     @satellite_type {str} 原始数据类型
@@ -69,6 +70,7 @@ def main(file_in, path_out, satellite_type, file_in_geo,
     @aerosol {int} 气溶胶类型(0:无 1:大陆 2:近海 3:城市)
     @view {float} 能见度
     @altitude {float} target altitude (km)
+    @cores {int} cores of CPU
     '''
     if satellite_type == 'AQUA-MODIS-1KM' or satellite_type == 'TERRA-MODIS-1KM':
         # MODIS 1km
@@ -195,7 +197,8 @@ def main(file_in, path_out, satellite_type, file_in_geo,
             target_type=target,
             altitude=altitude,
             visibility=view,
-            dst_dir=path_out_10m
+            dst_dir=path_out_10m,
+            cpu_cores=cores
         )
     elif satellite_type == 'Sentinel3-OLCI':
         # Sentinel3 OLCI
@@ -250,6 +253,7 @@ if __name__ == '__main__':
     parser.add_argument('--view', type=float, default=15.0, help='能见度(km)')
     parser.add_argument('--alti', type=float, default=0.01, help='地面高程(km)')
     parser.add_argument('--target', type=int, default=4, help='地面目标物类型') # 1 植被 2 一类水体 3 沙漠 4 湖泊水体
+    parser.add_argument('--cores', type=int, default=1, help='用于并行处理的核心数')
     args = parser.parse_args()
     if not(args.type in SATELLITE_TYPE):
         print('[Error] Invalid satellite type(--type), should be one of the following:\n%s' % (
@@ -264,7 +268,8 @@ if __name__ == '__main__':
         aerosol=args.aero,
         view=args.view,
         altitude=args.alti,
-        target=args.target
+        target=args.target,
+        cores=args.cores
     )
     time_e = time.time()
     print('%ds in all' % (time_e-time_s))

@@ -7,6 +7,7 @@ import shutil
 import xml.etree.ElementTree as ET
 import zipfile
 import sys
+import multiprocessing
 
 import numpy as np
 import simplejson
@@ -143,6 +144,61 @@ def arms_corr(raster_data, mtl_coef, wave_index):
     return(atms_corr_data)
 
 
+def radi_atms(item, data_dir, dst_dir, sixs_config):
+    wave_index = re.findall(r'B[\dA]+', item)
+    if len(wave_index) == 1:
+        print('preprocess: %s' % wave_index[0])
+        wave_index = wave_index[0]
+    else:
+        return 0
+    raster = gdal.Open(os.path.join(data_dir, item))
+    dataset = raster.GetRasterBand(1)
+    if wave_index in bands_20:
+        data = dataset.ReadAsArray(
+            buf_xsize=raster.RasterXSize * 2,
+            buf_ysize=raster.RasterYSize * 2
+        )
+    elif wave_index in bands_60:
+        data = dataset.ReadAsArray(
+            buf_xsize=raster.RasterXSize * 6,
+            buf_ysize=raster.RasterYSize * 6
+        )
+    else:
+        data = dataset.ReadAsArray()
+    nan_mask = data == 0
+    radi_cali = data.astype(float) / 10000
+    mtl_coef = {
+        'altitude': sixs_config['altitude'],
+        'visibility': sixs_config['visibility'],
+        'aero_type': sixs_config['aero_type'],
+        'target_type': sixs_config['target_type'],
+        'location': sixs_config['center_lonlat'],
+        'month': sixs_config['month'],
+        'day': sixs_config['day'],
+        'solz': sixs_config['solz'],
+        'sola': sixs_config['sola'],
+        'salz': sixs_config['salz'],
+        'sala': sixs_config['sala']
+    }
+    if wave_index == 'B10':
+        res_atms_corr = radi_cali
+    else:
+        res_atms_corr = arms_corr(radi_cali, mtl_coef, wave_index) * 10000.0
+    # 20m和60m的数据需要重采样
+    if wave_index in bands_20:
+        geo_trans_dst = list(raster.GetGeoTransform())
+        geo_trans_dst[1] /= 2
+        geo_trans_dst[5] /= 2
+    elif wave_index in bands_60:
+        geo_trans_dst = list(raster.GetGeoTransform())
+        geo_trans_dst[1] /= 6
+        geo_trans_dst[5] /= 6
+    file_out = os.path.join(dst_dir, item).replace('.jp2', '') + '_L2.tif'
+    res_atms_corr = res_atms_corr.astype(np.int)
+    res_atms_corr[nan_mask] = -9999
+    raster2tif(res_atms_corr, geo_trans_dst, raster.GetProjection(), file_out, 'int')
+
+
 def raster2tif(raster, geo_trans, proj_ref, file_out, type='float'):
     """save ndarray as GeoTiff
     """
@@ -178,7 +234,7 @@ def raster2tif(raster, geo_trans, proj_ref, file_out, type='float'):
 
 
 def main(ifile, aero_type=1, target_type=4, altitude=0.01, visibility=15,
-        dst_dir=None):
+        dst_dir=None, cpu_cores=1):
     """main function
 
     Args:
@@ -259,84 +315,36 @@ def main(ifile, aero_type=1, target_type=4, altitude=0.01, visibility=15,
     date = '%d/%d/%d %d:%d:%d' % (year, month, day, hour, minute, second)
     center_lonlat = coord_trans.trans(epsg, 4326, ulx+(ncols/2)*60, uly-(nrows/2)*60)
     [solz, sola] = calc_sola_position.main(center_lonlat[0], center_lonlat[1], date)
-    path_data = os.path.join(path_in, 'GRANULE', path_xml, 'IMG_DATA')
-    data_list = os.listdir(path_data)
+    data_dir = os.path.join(path_in, 'GRANULE', path_xml, 'IMG_DATA')
+    data_list = os.listdir(data_dir)
     # 辐射定标和大气校正
-    for item in data_list:
-        wave_index = re.findall(r'B[\dA]+', item)
-        if len(wave_index) == 1:
-            print('preprocess: %s' % wave_index[0])
-            wave_index = wave_index[0]
-        else:
-            continue
-        raster = gdal.Open(os.path.join(path_data, item))
-        dataset = raster.GetRasterBand(1)
-        if wave_index in bands_20:
-            data = dataset.ReadAsArray(
-                buf_xsize=raster.RasterXSize * 2,
-                buf_ysize=raster.RasterYSize * 2
-            )
-        elif wave_index in bands_60:
-            data = dataset.ReadAsArray(
-                buf_xsize=raster.RasterXSize * 6,
-                buf_ysize=raster.RasterYSize * 6
-            )
-        else:
-            data = dataset.ReadAsArray()
-        nan_mask = data == 0
-        radi_cali = data.astype(float) / 10000
-        mtl_coef = {
-            'altitude': altitude,
-            'visibility': visibility,
-            'aero_type': aero_type,
-            'target_type': target_type,
-            'location': center_lonlat,
-            'month': month,
-            'day': day,
-            'solz': solz,
-            'sola': sola,
-            'salz': salz,
-            'sala': sala
-        }
-        if wave_index == 'B10':
-            res_atms_corr = radi_cali
-        else:
-            res_atms_corr = arms_corr(radi_cali, mtl_coef, wave_index) * 10000.0
-        if wave_index == 'B02':
-            # 超过10km^2的矫正结果为负值表明需要调整参数
-            # invalid_key = (nan_mask < 0.5) * (res_atms_corr < 0)
-            # if len(res_atms_corr[invalid_key]) > 1e5:
-            if False:
-                print('Case 1 water (Redo) ...')
-                if visibility > 200:
-                    print('Unexpected Error!')
-                    sys.exit(0)
-                return(main(
-                    ifile,
-                    aero_type=aero_type,
-                    target_type=2,
-                    altitude=altitude,
-                    visibility=visibility+20,
-                    dst_dir=dst_dir
-                ))
-        # 20m和60m的数据需要重采样
-        if wave_index in bands_20:
-            geo_trans_dst = list(raster.GetGeoTransform())
-            geo_trans_dst[1] /= 2
-            geo_trans_dst[5] /= 2
-        elif wave_index in bands_60:
-            geo_trans_dst = list(raster.GetGeoTransform())
-            geo_trans_dst[1] /= 6
-            geo_trans_dst[5] /= 6
-        if dst_dir is None:
-            dst_dir = os.path.split(ifile)[0]
-        file_out = os.path.join(dst_dir, item).replace('.jp2', '') + '_L2.tif'
-        dst_file.append(file_out)
-        res_atms_corr = res_atms_corr.astype(np.int)
-        res_atms_corr[nan_mask] = -9999
-        raster2tif(res_atms_corr, geo_trans_dst, raster.GetProjection(), file_out, 'int')
-        raster = None
+    sixs_config = {
+        'altitude': altitude,
+        'visibility': visibility,
+        'aero_type': aero_type,
+        'target_type': target_type,
+        'location': center_lonlat,
+        'month': month,
+        'day': day,
+        'solz': solz,
+        'sola': sola,
+        'salz': salz,
+        'sala': sala
+    }
+    if cpu_cores > 1:
+        task_num = int(len(data_list) / cpu_cores + 0.5)
+        for i in range(task_num):
+            data_list_sub = data_list[i*cpu_cores:(i+1)*cpu_cores]
+            pool = multiprocessing.Pool(processes=cpu_cores)
+            for item in data_list_sub:
+                pool.apply_async(radi_atms, (item, data_dir, dst_dir, sixs_config))
+            pool.close()
+            pool.join()
+            print('part %d is done!' % (i+1))
+    else:
+        for item in data_list:
+            radi_atms(item, data_dir, dst_dir, sixs_config)
+        
     # 删除解压文件
     if os.path.isfile(ifile):
         shutil.rmtree(path_in)
-    return(dst_file)
