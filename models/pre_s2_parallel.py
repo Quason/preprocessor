@@ -42,6 +42,40 @@ bands_60 = ['B01', 'B09', 'B10']
 PI = 3.14159
 
 
+def raster2tif(raster, geo_trans, proj_ref, file_out, type='float'):
+    """save ndarray as GeoTiff
+    """
+    driver = gdal.GetDriverByName('GTiff')
+    if len(raster.shape) == 2:
+        nbands = 1
+    else:
+        nbands = raster.shape[2]
+    if type == 'uint8':
+        target_ds = driver.Create(
+            file_out, raster.shape[1], raster.shape[0], nbands, gdal.GDT_Byte)
+        mask_value = None
+    elif type == 'int':
+        target_ds = driver.Create(
+            file_out, raster.shape[1], raster.shape[0], nbands, gdal.GDT_Int16)
+        mask_value = -9999
+    else:
+        target_ds = driver.Create(
+            file_out, raster.shape[1], raster.shape[0], nbands, gdal.GDT_Float32)
+        mask_value = -9999
+    target_ds.SetGeoTransform(geo_trans)
+    target_ds.SetProjection(proj_ref)
+    if nbands == 1:
+        target_ds.GetRasterBand(1).WriteArray(raster)
+        if mask_value is not None:
+            target_ds.GetRasterBand(1).SetNoDataValue(mask_value)
+    else:
+        for i in range(nbands):
+            target_ds.GetRasterBand(i+1).WriteArray(raster[:,:,i])
+            if mask_value is not None:
+                target_ds.GetRasterBand(i+1).SetNoDataValue(mask_value)
+    target_ds = None
+
+
 def parse_xml(tree, tag): 
     tag_index = 0
     child = tree.findall(tag[tag_index][0])
@@ -172,7 +206,7 @@ def radi_atms(item, data_dir, dst_dir, sixs_config):
         'visibility': sixs_config['visibility'],
         'aero_type': sixs_config['aero_type'],
         'target_type': sixs_config['target_type'],
-        'location': sixs_config['center_lonlat'],
+        'location': sixs_config['location'],
         'month': sixs_config['month'],
         'day': sixs_config['day'],
         'solz': sixs_config['solz'],
@@ -184,53 +218,19 @@ def radi_atms(item, data_dir, dst_dir, sixs_config):
         res_atms_corr = radi_cali
     else:
         res_atms_corr = arms_corr(radi_cali, mtl_coef, wave_index) * 10000.0
+    geo_trans_dst = list(raster.GetGeoTransform())
     # 20m和60m的数据需要重采样
     if wave_index in bands_20:
-        geo_trans_dst = list(raster.GetGeoTransform())
         geo_trans_dst[1] /= 2
         geo_trans_dst[5] /= 2
     elif wave_index in bands_60:
-        geo_trans_dst = list(raster.GetGeoTransform())
         geo_trans_dst[1] /= 6
         geo_trans_dst[5] /= 6
     file_out = os.path.join(dst_dir, item).replace('.jp2', '') + '_L2.tif'
     res_atms_corr = res_atms_corr.astype(np.int)
     res_atms_corr[nan_mask] = -9999
     raster2tif(res_atms_corr, geo_trans_dst, raster.GetProjection(), file_out, 'int')
-
-
-def raster2tif(raster, geo_trans, proj_ref, file_out, type='float'):
-    """save ndarray as GeoTiff
-    """
-    driver = gdal.GetDriverByName('GTiff')
-    if len(raster.shape) == 2:
-        nbands = 1
-    else:
-        nbands = raster.shape[2]
-    if type == 'uint8':
-        target_ds = driver.Create(
-            file_out, raster.shape[1], raster.shape[0], nbands, gdal.GDT_Byte)
-        mask_value = None
-    elif type == 'int':
-        target_ds = driver.Create(
-            file_out, raster.shape[1], raster.shape[0], nbands, gdal.GDT_Int16)
-        mask_value = -9999
-    else:
-        target_ds = driver.Create(
-            file_out, raster.shape[1], raster.shape[0], nbands, gdal.GDT_Float32)
-        mask_value = -9999
-    target_ds.SetGeoTransform(geo_trans)
-    target_ds.SetProjection(proj_ref)
-    if nbands == 1:
-        target_ds.GetRasterBand(1).WriteArray(raster)
-        if mask_value is not None:
-            target_ds.GetRasterBand(1).SetNoDataValue(mask_value)
-    else:
-        for i in range(nbands):
-            target_ds.GetRasterBand(i+1).WriteArray(raster[:,:,i])
-            if mask_value is not None:
-                target_ds.GetRasterBand(i+1).SetNoDataValue(mask_value)
-    target_ds = None
+    raster = None
 
 
 def main(ifile, aero_type=1, target_type=4, altitude=0.01, visibility=15,

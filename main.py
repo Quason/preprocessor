@@ -249,11 +249,11 @@ if __name__ == '__main__':
     parser.add_argument('--geofile', type=str, default='', help='地理参考文件')
     parser.add_argument('--lon', type=float, default=120.17, help='目标中心经度')
     parser.add_argument('--lat', type=float, default=31.2, help='目标中心纬度')
-    parser.add_argument('--aero', type=int, default=1, help='气溶胶类型 0无 1大陆 2近海 3城市')
-    parser.add_argument('--view', type=float, default=15.0, help='能见度(km)')
-    parser.add_argument('--alti', type=float, default=0.01, help='地面高程(km)')
-    parser.add_argument('--target', type=int, default=4, help='地面目标物类型') # 1 植被 2 一类水体 3 沙漠 4 湖泊水体
-    parser.add_argument('--cores', type=int, default=1, help='用于并行处理的核心数')
+    parser.add_argument('--aero', type=int, default=1, help='气溶胶类型 0无 1大陆(默认) 2近海 3城市')
+    parser.add_argument('--view', type=float, default=15.0, help='能见度(默认15km)')
+    parser.add_argument('--alti', type=float, default=0.01, help='地面高程(默认0.01km)')
+    parser.add_argument('--target', type=int, default=4, help='地面目标物类型 1 植被 2 清洁水体 3 沙漠 4 湖泊水体(默认)')
+    parser.add_argument('--cores', type=int, default=1, help='用于并行处理的核心数(默认1)')
     args = parser.parse_args()
     if not(args.type in SATELLITE_TYPE):
         print('[Error] Invalid satellite type(--type), should be one of the following:\n%s' % (
