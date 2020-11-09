@@ -244,6 +244,14 @@ def main(ifile, shp_file=None, cut_range=None, aerotype=1,
     xml_name = xml_name.replace('.rpb', '.xml')
     xml_name_rename = raster_fn_out.replace('.tiff', '.xml')
     shutil.copy(os.path.join(file_path, xml_name), xml_name_rename)
+    # 正射校正
+    rpc_file = raster_fn_out.replace('.tiff', '_rpc.tiff')
+    warp_options = gdal.WarpOptions(rpc=True)
+    gdal.Warp(rpc_file, raster_fn_out, options=warp_options)
+    os.remove(raster_fn_out)
+    os.remove(xml_name_rename)
+    os.remove(rpb_name_rename)
+    shutil.move(rpc_file, raster_fn_out)
     # 删除解压文件
     raster = None
     shutil.rmtree(file_path)

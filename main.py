@@ -184,13 +184,6 @@ def main(file_in, path_out, satellite_type, file_in_geo,
     elif satellite_type == 'Sentinel2':
         # Sentinel2
         path_out_10m = path_out
-        path_out_20m = path_out
-        path_out_60m = path_out
-        # sentinel2.main(
-        #     ifile=file_in, shp_file=file_in_geo, aero_type=aerosol, target_type=4,
-        #     altitude=altitude, visibility=view, path_out_10m=path_out_10m,
-        #     path_out_20m=path_out_20m, path_out_60m=path_out_60m
-        # )
         sentinel2.main(
             ifile=file_in,
             aero_type=aerosol,
@@ -214,25 +207,25 @@ def main(file_in, path_out, satellite_type, file_in_geo,
             altitude=altitude, visibility=view, cut_range=None, band_need=['all'],
             path_out=path_out
         )
-    elif satellite_type == 'GF1-WFV-16':
+    elif satellite_type == 'GF1-WFV':
         # 高分1号 WFV
         gf1_wfv.main(
             ifile=file_in, aerotype=aerosol, altitude=altitude,
             visibility=view, path_out=path_out
         )
-    elif satellite_type == 'GF1-PMS-8':
+    elif satellite_type == 'GF1-PMS':
         # 高分1号 PMS
         gf1_pms.main(
             ifile=file_in, aerotype=aerosol, altitude=altitude,
             visibility=view, path_out=path_out
         )
-    elif satellite_type == 'GF2-PMS-4':
+    elif satellite_type == 'GF2-PMS':
         # 高分2号
         gf2.main(
             ifile=file_in, aerotype=aerosol, altitude=altitude,
             visibility=view, path_out=path_out
         )
-    elif satellite_type == 'ZY3-MUX-6':
+    elif satellite_type == 'ZY3-MUX':
         # 资源3号
         zy3.main(
             ifile=file_in, aerotype=aerosol, altitude=altitude,
